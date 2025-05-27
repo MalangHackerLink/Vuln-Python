@@ -1,10 +1,9 @@
-
 ## 🚀 Cara Menjalankan
 
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/username/nama-repo.git
+git clone https://github.com/Awasefra/vuln-python.git
 cd nama-repo
 ```
 
@@ -37,8 +36,13 @@ pip install -r requirements.txt
 ```bash
 python app.py
 ```
+## Postman Collection
+[python vuln.postman_collection.json](https://github.com/user-attachments/files/20456122/python.vuln.postman_collection.json)
 
-### 6. List VULN
+## Postman Environtment
+[vul_environtment.postman_environment.json](https://github.com/user-attachments/files/20456138/vul_environtment.postman_environment.json)
+
+### List VULN
 - VULN 1: Secret Key Lemah dan Hardcoded (config.py)
 - VULN 2: JWT Secret Key Lemah dan Hardcoded (config.py)
 - VULN 3: Brute-force Login Tanpa Rate Limiting (auth_routes.py - /auth/login)
