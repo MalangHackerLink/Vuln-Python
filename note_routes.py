@@ -22,24 +22,32 @@ def create_note():
     if not title or not content:
         return jsonify({'message': 'Title and content are required'}), 400
 
-    # VULN 10: SQL Injection - JIKA kita menggunakan raw SQL tanpa parameterized query
-    # Ini adalah contoh raw SQL yang VULN jika langsung pakai f-string
-    # try:
-    #     conn = db.engine.raw_connection()
-    #     cursor = conn.cursor()
-    #     cursor.execute(f"INSERT INTO note (title, content, user_id) VALUES ('{title}', '{content}', {request.current_user.id})")
-    #     conn.commit()
-    #     cursor.close()
-    #     conn.close()
-    # except Exception as e:
-    #     return jsonify({'message': f'Database error: {str(e)}'}), 500
-    # SOLUSI AMAN: Menggunakan ORM SQLAlchemy secara default mencegah ini
-    
-    new_note = Note(title=title, content=content, user_id=request.current_user.id)
-    db.session.add(new_note)
-    db.session.commit()
+    try:
+        conn = db.engine.raw_connection()
+        cursor = conn.cursor()
 
-    return jsonify(new_note.to_dict()), 201
+        # VULN 10: SQL Injection
+        cursor.execute(f"INSERT INTO note (title, content, user_id) VALUES ('{title}', '{content}', {request.current_user.id})")
+
+        # Ambil ID terakhir yang diinsert
+        cursor.execute("SELECT last_insert_rowid()")
+        last_id = cursor.fetchone()[0]
+
+        # Ambil data yang baru dibuat
+        cursor.execute(f"SELECT * FROM note WHERE id = {last_id}")
+        row = cursor.fetchone()
+        colnames = [desc[0] for desc in cursor.description]
+        note_dict = dict(zip(colnames, row))
+
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+        return jsonify(note_dict), 201
+
+    except Exception as e:
+        return jsonify({'message': f'Database error: {str(e)}'}), 500
+
 
 @note_bp.route('/notes/<int:note_id>', methods=['GET'])
 @auth_required
@@ -55,26 +63,52 @@ def get_note(note_id):
 @note_bp.route('/notes/<int:note_id>', methods=['PUT'])
 @auth_required
 def update_note(note_id):
-    note = Note.query.get(note_id)
-    if not note:
-        return jsonify({'message': 'Note not found'}), 404
-    
-    # VULN 11: IDOR - Tidak ada cek kepemilikan
-    # if note.user_id != request.current_user.id: # Solusi untuk IDOR
-    #     return jsonify({'message': 'Forbidden'}), 403
+    try:
+        conn = db.engine.raw_connection()
+        cursor = conn.cursor()
 
-    data = request.get_json()
-    # VULN 12: Mass Assignment - Menerima semua field dari request.json
-    # Jika ada field 'user_id' di data, bisa diubah!
-    if 'title' in data:
-        note.title = data['title']
-    if 'content' in data:
-        note.content = data['content']
-    # if 'user_id' in data: # VULN 12: Jika ini diizinkan
-    #     note.user_id = data['user_id'] 
+        # Ambil data berdasarkan ID tanpa cek kepemilikan (VULN 11)
+        cursor.execute(f"SELECT * FROM note WHERE id = {note_id}")
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            conn.close()
+            return jsonify({'message': 'Note not found'}), 404
 
-    db.session.commit()
-    return jsonify(note.to_dict()), 200
+        data = request.get_json()
+
+        # Buat bagian SET dari query secara langsung (VULN 12 + SQL Injection)
+        updates = []
+        if 'title' in data:
+            updates.append(f"title = '{data['title']}'")
+        if 'content' in data:
+            updates.append(f"content = '{data['content']}'")
+        if 'user_id' in data:
+            updates.append(f"user_id = {data['user_id']}")  # tidak dikutip = integer
+
+        if not updates:
+            cursor.close()
+            conn.close()
+            return jsonify({'message': 'No data provided'}), 400
+
+        update_sql = f"UPDATE note SET {', '.join(updates)} WHERE id = {note_id}"
+        cursor.execute(update_sql)
+        conn.commit()
+
+        # Ambil data baru
+        cursor.execute(f"SELECT * FROM note WHERE id = {note_id}")
+        updated_row = cursor.fetchone()
+        colnames = [desc[0] for desc in cursor.description]
+        note_dict = dict(zip(colnames, updated_row))
+
+        cursor.close()
+        conn.close()
+
+        return jsonify(note_dict), 200
+
+    except Exception as e:
+        return jsonify({'message': f'Database error: {str(e)}'}), 500
+
 
 @note_bp.route('/notes/<int:note_id>', methods=['DELETE'])
 @auth_required
@@ -84,8 +118,6 @@ def delete_note(note_id):
         return jsonify({'message': 'Note not found'}), 404
     
     # VULN 11: IDOR - Tidak ada cek kepemilikan
-    # if note.user_id != request.current_user.id: # Solusi untuk IDOR
-    #     return jsonify({'message': 'Forbidden'}), 403
 
     db.session.delete(note)
     db.session.commit()
