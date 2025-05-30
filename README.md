@@ -52,7 +52,7 @@ python app.py
 - VULN 7: JWT Algoritma None & Kurangnya Validasi Algoritma (auth_routes.py - verify_jwt_token)
 - VULN 8: Kepercayaan Berlebihan pada Payload JWT (auth_routes.py - auth_required)
 - VULN 9: Global Read for Notes (note_routes.py - get_notes)
-- VULN 10: SQL Injection (Melalui Komentar Kode) (note_routes.py - create_note)
+- VULN 10: SQL Injection (Melalui Komentar Kode) (http://127.0.0.1:5000/api/notes/view)
 - VULN 11: Insecure Direct Object Reference (IDOR) pada Catatan (note_routes.py - get_note, update_note, delete_note)
 - VULN 12: Mass Assignment pada Catatan (note_routes.py - update_note)
 - VULN 13: Admin Endpoint Bergantung pada JWT Payload (note_routes.py - /admin/users)
