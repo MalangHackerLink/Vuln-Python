@@ -62,7 +62,7 @@ def get_note(note_id):
 
 @note_bp.route('/notes/view', methods=['POST'])
 @auth_required
-def get_note_post(note_id):
+def get_note_post():
     data = request.get_json()
     id_notes = data.get('id')
     try:
