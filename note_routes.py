@@ -64,12 +64,16 @@ def get_note(note_id):
 @auth_required
 def get_note_post():
     data = request.get_json()
-    id_notes = data.get('id')
+
+    if not data or 'id' not in data:
+        return jsonify({'message': 'Missing "id" in request body'}), 400
+
+    id_notes = data['id']
     try:
         conn = db.engine.raw_connection()
         cursor = conn.cursor()
 
-        # Vuln SQL Injection - ID langsung dimasukkan ke query tanpa sanitasi
+        # VULN: SQL Injection
         raw_query = f"SELECT * FROM note WHERE id = {id_notes}"
         cursor.execute(raw_query)
 
@@ -79,7 +83,6 @@ def get_note_post():
             conn.close()
             return jsonify({'message': 'Note not found'}), 404
 
-        # Ambil kolom dan buat dict dari hasil query
         colnames = [desc[0] for desc in cursor.description]
         note_dict = dict(zip(colnames, row))
 
@@ -90,6 +93,7 @@ def get_note_post():
 
     except Exception as e:
         return jsonify({'message': f'Query error: {str(e)}'}), 500
+
 
 @note_bp.route('/notes/<int:note_id>', methods=['PUT'])
 @auth_required
