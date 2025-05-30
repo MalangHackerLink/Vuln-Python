@@ -60,6 +60,37 @@ def get_note(note_id):
     # User A bisa lihat note User B hanya dengan mengubah ID di URL
     return jsonify(note.to_dict()), 200
 
+@note_bp.route('/notes/view', methods=['POST'])
+@auth_required
+def get_note_post(note_id):
+    data = request.get_json()
+    id_notes = data.get('id')
+    try:
+        conn = db.engine.raw_connection()
+        cursor = conn.cursor()
+
+        # Vuln SQL Injection - ID langsung dimasukkan ke query tanpa sanitasi
+        raw_query = f"SELECT * FROM note WHERE id = {id_notes}"
+        cursor.execute(raw_query)
+
+        row = cursor.fetchone()
+        if not row:
+            cursor.close()
+            conn.close()
+            return jsonify({'message': 'Note not found'}), 404
+
+        # Ambil kolom dan buat dict dari hasil query
+        colnames = [desc[0] for desc in cursor.description]
+        note_dict = dict(zip(colnames, row))
+
+        cursor.close()
+        conn.close()
+
+        return jsonify(note_dict), 200
+
+    except Exception as e:
+        return jsonify({'message': f'Query error: {str(e)}'}), 500
+
 @note_bp.route('/notes/<int:note_id>', methods=['PUT'])
 @auth_required
 def update_note(note_id):
